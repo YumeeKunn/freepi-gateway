@@ -1,0 +1,20 @@
+[Unit]
+Description=free-pi gateway (OpenAI/Anthropic compatible) for any agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Template: replace %h/freepi-gateway with the absolute path of this folder,
+# and set ExecStart to your own node binary (`command -v node`).
+WorkingDirectory=%h/freepi-gateway
+ExecStart=%h/.nvm/versions/node/v22.19.0/bin/node %h/freepi-gateway/src/server.js
+Restart=on-failure
+RestartSec=3
+# Optional settings:
+# Environment=GATEWAY_PORT=8788
+# Environment=GATEWAY_API_KEY=change-me
+# Environment=FREEPI_AUTO_RESET=1
+
+[Install]
+WantedBy=default.target

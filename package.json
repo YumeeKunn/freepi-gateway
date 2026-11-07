@@ -1,0 +1,13 @@
+{
+  "name": "freepi-gateway",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Local OpenAI/Anthropic compatible gateway for free-pi models",
+  "engines": {
+    "node": ">=22.15.0"
+  },
+  "scripts": {
+    "start": "node src/server.js"
+  }
+}

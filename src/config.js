@@ -41,6 +41,10 @@ export const config = {
   modelsTtlMs: int("GATEWAY_MODELS_TTL_MS", 60_000),
   requestTimeoutMs: int("GATEWAY_REQUEST_TIMEOUT_MS", 600_000),
 
+  // A slot held longer than this is force-released so one stuck request cannot
+  // wedge the queue forever. Keep above requestTimeoutMs.
+  slotHardLimitMs: int("GATEWAY_SLOT_HARD_LIMIT_MS", 720_000),
+
   // If another free-pi CLI session holds the account lease, POST /session/reset
   // and retry once. Keep off while a terminal free-pi session is in use.
   autoResetSession: bool("FREEPI_AUTO_RESET", false),

@@ -5,6 +5,9 @@ Wants=network-online.target
 
 [Service]
 Type=simple
+# Optional unit. The gateway is normally started by hand with ./run.sh and
+# stopped with Ctrl+C. Install this only if you want it running from boot.
+#
 # Template: replace %h/freepi-gateway with the absolute path of this folder,
 # and set ExecStart to your own node binary (`command -v node`).
 WorkingDirectory=%h/freepi-gateway

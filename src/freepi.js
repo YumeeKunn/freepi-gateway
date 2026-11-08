@@ -141,12 +141,22 @@ class Semaphore {
 
   #releaser() {
     let done = false;
-    return () => {
+    const release = () => {
       if (done) return;
       done = true;
+      clearTimeout(watchdog);
       this.active -= 1;
       this.#drain();
     };
+    // Self-heal: a request that leaks its slot (client abort, upstream throw
+    // outside a finally) must not wedge the queue forever.
+    const watchdog = setTimeout(() => {
+      if (done) return;
+      console.warn("[queue] releasing a slot that was held past the hard limit");
+      release();
+    }, config.slotHardLimitMs);
+    watchdog.unref?.();
+    return release;
   }
 
   #drain() {
@@ -157,12 +167,20 @@ class Semaphore {
       waiter.resolve(this.#releaser());
     }
   }
+
+  stats() {
+    return { active: this.active, waiting: this.waiters.length, max: this.max };
+  }
 }
 
 const queue = new Semaphore(1);
 
 export function acquireSlot() {
   return queue.acquire(config.queueWaitMs);
+}
+
+export function queueStats() {
+  return queue.stats();
 }
 
 // ---------------------------------------------------------------------------

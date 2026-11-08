@@ -8,6 +8,7 @@ import {
   getJwt,
   isKnownModel,
   listModels,
+  queueStats,
   resetOtherSession,
   upstreamChat,
 } from "./freepi.js";
@@ -227,8 +228,12 @@ async function handleOpenAIChat(req, res) {
     return;
   }
 
-  const text = await upstream.text();
-  release();
+  let text;
+  try {
+    text = await upstream.text();
+  } finally {
+    release();
+  }
   res.writeHead(upstream.status, {
     "content-type": upstream.headers.get("content-type") || "application/json; charset=utf-8",
   });
@@ -311,8 +316,12 @@ async function handleAnthropicMessages(req, res) {
     return;
   }
 
-  const text = await upstream.text();
-  release();
+  let text;
+  try {
+    text = await upstream.text();
+  } finally {
+    release();
+  }
   let completion;
   try {
     completion = JSON.parse(text);
@@ -371,6 +380,7 @@ async function handleHealth(res) {
     authError,
     models,
     modelsError,
+    queue: queueStats(),
   });
 }
 

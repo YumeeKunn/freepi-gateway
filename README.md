@@ -32,6 +32,7 @@ npx free-pi-cli@latest
 # 2. start the gateway
 cd /path/to/freepi-gateway
 ./run.sh
+# Ctrl+C to stop. No service, no autostart — run it again when needed.
 
 # 3. in a second terminal: check it is alive
 curl -s http://127.0.0.1:8788/health
@@ -137,7 +138,28 @@ curl -s http://127.0.0.1:8788/health
 curl -s http://127.0.0.1:8788/v1/models
 ```
 
-### Autostart with systemd (user service)
+**Port 8788 already in use?** Something is already running the gateway — most
+often the systemd service from an earlier install, or a terminal instance you
+forgot about. That is not a free-pi problem and re-running `free-pi-cli` will
+not help. Check the owner and pick one:
+
+```bash
+ss -lptn 'sport = :8788'          # who holds the port
+curl -s http://127.0.0.1:8788/health   # is that instance healthy?
+
+# use the running one and skip starting another, OR
+systemctl --user stop freepi-gateway  # stop the old one first, OR
+GATEWAY_PORT=8790 ./run.sh            # run this copy on another port
+```
+
+If you change the port, point your agent at that port too
+(`http://127.0.0.1:8790/v1`).
+
+### Optional: autostart with systemd
+
+**Not installed and not enabled by default.** If you prefer to start the
+gateway by hand, skip this whole section — `./run.sh` in a terminal is the
+normal way, and Ctrl+C stops it. Do this only if you want it running from boot.
 
 The unit shipped in this folder is a **template**: `WorkingDirectory` and
 `ExecStart` use `%h` (your home) plus one specific nvm node path. Rewrite both
@@ -159,6 +181,14 @@ Check the generated unit before enabling it if your paths are unusual:
 ```bash
 grep -E 'WorkingDirectory|ExecStart' ~/.config/systemd/user/freepi-gateway.service
 ```
+
+To turn autostart off again:
+
+```bash
+systemctl --user disable --now freepi-gateway
+```
+
+After that the gateway stays off until you run `./run.sh` yourself.
 
 The service must run as the same user that signed in to free-pi, because it
 reads `~/.free-pi/agent/credentials.json` from your real home.
@@ -285,6 +315,7 @@ first start. Never commit it; it holds a session id.
 | `GATEWAY_DEFAULT_MODEL` | `deepseek-v4-flash` | used when a request omits `model` |
 | `GATEWAY_MAX_QUEUE` | `64` | max waiting requests |
 | `GATEWAY_QUEUE_WAIT_MS` | `300000` | max wait in queue |
+| `GATEWAY_SLOT_HARD_LIMIT_MS` | `720000` | force-release a slot held longer than this (self-heal) |
 | `GATEWAY_LOG_REQUESTS` | `1` | one log line per request |
 
 ## Troubleshooting
@@ -294,9 +325,11 @@ first start. Never commit it; it holds a session id.
 | `503 freepi_not_signed_in` | Free-pi was never signed in, or the token file is gone. Run `npx free-pi-cli@latest`, sign in, restart the gateway. |
 | `401 freepi_token_expired` | Token expired. Sign in again with `npx free-pi-cli@latest`. |
 | `409 concurrent_session` | A terminal `free-pi-cli` session (or a crashed one) holds the account lease. Close the CLI, or run `curl -X POST http://127.0.0.1:8788/admin/reset-session`, or start the gateway with `FREEPI_AUTO_RESET=1`. |
+| `EADDRINUSE 127.0.0.1:8788` | Another gateway instance already owns the port, usually the systemd service. Check `ss -lptn 'sport = :8788'`; use it, stop it (`systemctl --user stop freepi-gateway`), or start this copy with `GATEWAY_PORT=8790`. Re-running `free-pi-cli` does not free the port. |
 | `429 daily_cap` / `ads_required` | free-pi allowance or ad requirement. The gateway only forwards the server's answer. |
 | systemd `status=203/EXEC` | Wrong `node` path in the unit. Set `ExecStart` to `command -v node`. |
 | Agent connects but every call waits | Free tier runs one completion at a time; parallel turns queue. |
+| `/health` answers instantly but chat calls hang forever | The request slot leaked (older builds could leak it when an upstream body errored). Restart the gateway; current builds guard the release in `finally` and add a watchdog. `GET /health` now reports `queue.active` / `queue.waiting`. |
 | `404` on `/v1/responses` | Not implemented; use a chat-completions or messages client. |
 
 ## free-pi facts that shape this gateway

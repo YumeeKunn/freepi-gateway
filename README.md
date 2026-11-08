@@ -121,6 +121,25 @@ cd /path/to/freepi-gateway
 ./run.sh
 ```
 
+Need a different port, or the key required? The script takes flags:
+
+```bash
+./run.sh                       # 127.0.0.1:8788
+./run.sh -p 8099               # 127.0.0.1:8099
+./run.sh --port=8099 --host 0.0.0.0
+./run.sh -k mysecret           # require "mysecret" as Bearer / x-api-key
+./run.sh --help
+```
+
+Same thing with environment variables (flags win over these):
+
+```bash
+GATEWAY_PORT=8099 ./run.sh
+```
+
+If you change the port, the agent base URL changes too:
+`http://127.0.0.1:8099/v1`.
+
 You should see:
 
 ```

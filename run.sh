@@ -48,11 +48,12 @@ done
 case "${GATEWAY_PORT:-8788}" in
   ''|*[!0-9]*) echo "error: port must be a number" >&2; exit 2 ;;
 esac
-if [ "$GATEWAY_PORT" -lt 1 ] || [ "$GATEWAY_PORT" -gt 65535 ]; then
+if [ "${GATEWAY_PORT:-8788}" -lt 1 ] || [ "${GATEWAY_PORT:-8788}" -gt 65535 ]; then
   echo "error: port must be 1-65535" >&2
   exit 2
 fi
 
+GATEWAY_PORT="${GATEWAY_PORT:-8788}"
 export GATEWAY_PORT
 [ -n "${GATEWAY_HOST:-}" ] && export GATEWAY_HOST
 [ -n "${GATEWAY_API_KEY:-}" ] && export GATEWAY_API_KEY

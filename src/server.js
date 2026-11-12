@@ -51,6 +51,20 @@ function anthropicError(res, status, message, type = "api_error") {
   sendJson(res, status, { type: "error", error: { type, message } });
 }
 
+// Aborts the upstream fetch as soon as the client goes away (agent timeout,
+// closed tab, killed process) so the 1-slot queue never holds a request nobody
+// is waiting for anymore.
+function clientAbort(req, res) {
+  const abort = new AbortController();
+  const gone = () => {
+    if (!res.writableEnded) abort.abort();
+  };
+  if (req.socket?.destroyed) abort.abort();
+  else req.socket?.on("close", gone);
+  res.on("error", () => {});
+  return abort;
+}
+
 function readBody(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -187,12 +201,14 @@ async function handleOpenAIChat(req, res) {
   body.model = await resolveModelForRequest(body.model);
   const wantsStream = Boolean(body.stream);
 
+  const abort = clientAbort(req, res);
   const release = await acquireSlot();
   let upstream;
   try {
-    upstream = await upstreamChat(body);
+    upstream = await upstreamChat(body, { signal: abort.signal });
   } catch (err) {
     release();
+    if (abort.signal.aborted) return;
     throw err;
   }
 
@@ -234,6 +250,7 @@ async function handleOpenAIChat(req, res) {
   } finally {
     release();
   }
+  if (abort.signal.aborted) return;
   res.writeHead(upstream.status, {
     "content-type": upstream.headers.get("content-type") || "application/json; charset=utf-8",
   });
@@ -249,12 +266,14 @@ async function handleAnthropicMessages(req, res) {
   const wantsStream = Boolean(body.stream);
   const openaiBody = anthropicToOpenAI({ ...body, model: requestedModel });
 
+  const abort = clientAbort(req, res);
   const release = await acquireSlot();
   let upstream;
   try {
-    upstream = await upstreamChat(openaiBody);
+    upstream = await upstreamChat(openaiBody, { signal: abort.signal });
   } catch (err) {
     release();
+    if (abort.signal.aborted) return;
     throw err;
   }
 
@@ -322,6 +341,7 @@ async function handleAnthropicMessages(req, res) {
   } finally {
     release();
   }
+  if (abort.signal.aborted) return;
   let completion;
   try {
     completion = JSON.parse(text);
@@ -375,6 +395,7 @@ async function handleHealth(res) {
   sendJson(res, 200, {
     ok: jwt,
     freepiBaseUrl: config.freepiBaseUrl,
+    clientVersion: config.clientVersion,
     autoResetSession: config.autoResetSession,
     signedIn: jwt,
     authError,
@@ -417,6 +438,7 @@ const server = http.createServer(async (req, res) => {
   const isAnthropicRoute = pathName === "/v1/messages" || pathName === "/messages";
 
   cors(res);
+  res.on("error", () => {});
 
   if (req.method === "OPTIONS") {
     res.writeHead(204);
@@ -505,6 +527,7 @@ server.listen(config.port, config.host, () => {
   console.log(`freepi-gateway listening on http://${config.host}:${config.port}`);
   console.log(`  free-pi upstream : ${config.freepiBaseUrl}`);
   console.log(`  credentials      : ${config.credentialsPath}`);
+  console.log(`  client version   : ${config.clientVersion}`);
   console.log(`  auto reset lease : ${config.autoResetSession ? "on" : "off"}`);
   console.log(`  gateway api key  : ${config.apiKey ? "required" : "none"}`);
 });

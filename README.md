@@ -329,7 +329,7 @@ first start. Never commit it; it holds a session id.
 | `GATEWAY_API_KEY` | empty | when set, clients must send `Bearer <key>` or `x-api-key` |
 | `FREEPI_CREDENTIALS` | `~/.free-pi/agent/credentials.json` | JWT file |
 | `FREEPI_BASE_URL` | `https://api.freepi.ai` | upstream |
-| `FREEPI_CLIENT_VERSION` | `0.6.14` | value of `x-client-version` |
+| `FREEPI_CLIENT_VERSION` | auto-detect | value of `x-client-version`. By default the newest `free-pi-cli` found in the npx cache is used (fallback `0.6.19`). Set explicitly only to override. |
 | `FREEPI_AUTO_RESET` | `0` | on `409 concurrent_session`, call `/session/reset` and retry once |
 | `GATEWAY_DEFAULT_MODEL` | `deepseek-v4-flash` | used when a request omits `model` |
 | `GATEWAY_MAX_QUEUE` | `64` | max waiting requests |

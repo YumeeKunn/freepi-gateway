@@ -195,7 +195,12 @@ function baseHeaders(jwt, sessionId) {
   };
 }
 
-async function rawFetch(pathname, { method = "GET", body, extraHeaders } = {}) {
+function combinedSignal(extra) {
+  if (!extra) return AbortSignal.timeout(config.requestTimeoutMs);
+  return AbortSignal.any([AbortSignal.timeout(config.requestTimeoutMs), extra]);
+}
+
+async function rawFetch(pathname, { method = "GET", body, extraHeaders, signal } = {}) {
   const jwt = await getJwt();
   const sessionId = await getSessionId();
   const headers = {
@@ -207,7 +212,7 @@ async function rawFetch(pathname, { method = "GET", body, extraHeaders } = {}) {
     method,
     headers,
     body: body === undefined ? undefined : typeof body === "string" ? body : JSON.stringify(body),
-    signal: AbortSignal.timeout(config.requestTimeoutMs),
+    signal: combinedSignal(signal),
   });
 }
 
@@ -231,10 +236,11 @@ function isConcurrentSession(data) {
 
 // Returns the upstream Response. For streaming callers the queue slot must be
 // held until the body is finished; use acquireSlot() before calling this.
-export async function upstreamChat(openaiBody) {
+export async function upstreamChat(openaiBody, { signal } = {}) {
   let res = await rawFetch("/v1/chat/completions", {
     method: "POST",
     body: openaiBody,
+    signal,
   });
 
   if (res.status === 409) {
@@ -244,6 +250,7 @@ export async function upstreamChat(openaiBody) {
       res = await rawFetch("/v1/chat/completions", {
         method: "POST",
         body: openaiBody,
+        signal,
       });
     }
   }

@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -18,6 +19,47 @@ function bool(name, fallback) {
   return ["1", "true", "yes", "on"].includes(raw.toLowerCase());
 }
 
+function semverParts(v) {
+  return String(v)
+    .split(".")
+    .map((n) => Number.parseInt(n, 10) || 0);
+}
+
+function compareSemver(a, b) {
+  const A = semverParts(a);
+  const B = semverParts(b);
+  for (let i = 0; i < 3; i += 1) {
+    if (A[i] !== B[i]) return A[i] - B[i];
+  }
+  return 0;
+}
+
+// free-pi rejects requests when x-client-version is below its minimum. Use the
+// newest free-pi-cli found in the npx cache, so a `npx free-pi-cli@latest` run
+// also updates what the gateway reports.
+function detectClientVersion(fallback) {
+  if (process.env.FREEPI_CLIENT_VERSION) return process.env.FREEPI_CLIENT_VERSION;
+
+  let best = null;
+  const npxRoot = path.join(os.homedir(), ".npm", "_npx");
+  try {
+    for (const dir of fs.readdirSync(npxRoot)) {
+      const pkg = path.join(npxRoot, dir, "node_modules", "free-pi-cli", "package.json");
+      try {
+        const version = JSON.parse(fs.readFileSync(pkg, "utf8")).version;
+        if (typeof version === "string" && (best === null || compareSemver(version, best) > 0)) {
+          best = version;
+        }
+      } catch {
+        // no free-pi-cli in this cache dir
+      }
+    }
+  } catch {
+    // no npx cache
+  }
+  return best || fallback;
+}
+
 export const config = {
   host: process.env.GATEWAY_HOST || "127.0.0.1",
   port: int("GATEWAY_PORT", 8788),
@@ -26,7 +68,7 @@ export const config = {
   credentialsPath:
     process.env.FREEPI_CREDENTIALS ||
     path.join(os.homedir(), ".free-pi", "agent", "credentials.json"),
-  clientVersion: process.env.FREEPI_CLIENT_VERSION || "0.6.14",
+  clientVersion: detectClientVersion("0.6.19"),
 
   stateDir: process.env.GATEWAY_STATE_DIR || path.join(root, "data"),
   defaultModel: process.env.GATEWAY_DEFAULT_MODEL || "deepseek-v4-flash",

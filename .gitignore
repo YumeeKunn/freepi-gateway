@@ -7,6 +7,10 @@ node_modules/
 .env
 .env.*
 
+# python bytecode
+__pycache__/
+*.pyc
+
 # editor / OS
 .DS_Store
 .vscode/

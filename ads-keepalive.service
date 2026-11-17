@@ -1,0 +1,25 @@
+[Unit]
+Description=free-pi ad keepalive (keeps free completions unlocked)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Sends GET /ads/next and POST /ads/impression on a timer so free-pi keeps free
+# completions enabled without the CLI being open.
+#
+# Install:
+#   mkdir -p ~/.config/systemd/user
+#   cp ads-keepalive.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now ads-keepalive.service
+#   systemctl --user status ads-keepalive.service
+#
+# Logs: journalctl --user -u ads-keepalive -f
+WorkingDirectory=/mnt/Storage/apps/ZCode-Clone/gateway
+ExecStart=/usr/bin/python3 /mnt/Storage/apps/ZCode-Clone/gateway/ads-keepalive.py --interval 120 --quiet
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=default.target
